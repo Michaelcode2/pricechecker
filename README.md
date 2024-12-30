@@ -16,6 +16,7 @@ First, determine which version you have libmpv.so.*:
 
 My results:
 
+
 ```
 /usr/lib/x86_64-linux-gnu/libmpv.so.2
 /usr/lib/x86_64-linux-gnu/libmpv.so.2.2.0
@@ -39,7 +40,7 @@ Obtained data:
 
 Returns
 
-````
+```
 {
     "name": "Product Name",
     "measurement": "pcs",

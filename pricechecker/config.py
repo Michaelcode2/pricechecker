@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # App settings
-APP_NAME = "Scanner App"
+APP_NAME = "PriceChecker App"
 DEBUG = True
 
 # Database settings
