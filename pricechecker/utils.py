@@ -27,6 +27,9 @@ def create_history_item(barcode: str, product: ProductInfo, timestamp: datetime 
     return ft.Card(
         content=ft.Container(
             content=ft.Column(column_controls, spacing=5),
-            padding=10
-        )
+            padding=10,
+            expand=True
+        ),
+        width=None,
+        expand=True
     )

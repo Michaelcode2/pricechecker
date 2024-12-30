@@ -8,28 +8,36 @@ import json  # Add this import at the top
 
 class HistoryView(ft.View):
     def __init__(self, page: ft.Page):
-        super().__init__(
-            "/history",
-            [
-                ft.AppBar(
-                    title=ft.Text("History"),
-                    leading=ft.IconButton(ft.icons.ARROW_BACK, on_click=self.go_back),
-                ),
-                ft.Column(
-                    scroll=ft.ScrollMode.ALWAYS,
-                    expand=True,
-                    spacing=5,
-                )
-            ],
-            padding=10,
-            spacing=10
-        )
+        super().__init__()
         self.page = page
-        self.history_column = self.controls[1]
+        
+        # Create a container that expands to full width
+        self.history_column = ft.Column(
+            spacing=10,
+            expand=True,  # Make column take full width
+            scroll=True
+        )
+        
+        # Wrap the column in a container for padding
+        self.container = ft.Container(
+            content=self.history_column,
+            padding=10,
+            expand=True  # Make container take full width
+        )
+        
+        # Set the view's controls with AppBar including leading back button
+        self.controls = [
+            ft.AppBar(
+                leading=ft.IconButton(ft.icons.ARROW_BACK, on_click=self.go_back),
+                title=ft.Text("Scan History"),
+                bgcolor=ft.colors.SURFACE_VARIANT
+            ),
+            self.container
+        ]
         
         # Load saved history when view is created
         try:
-            saved_history = self.page.client_storage.get("scan_history")
+            saved_history = page.client_storage.get("scan_history")
             if saved_history:
                 history = json.loads(saved_history)
                 for item in history:
@@ -90,7 +98,13 @@ class MainView(ft.View):
     def __init__(self, page: ft.Page):
         self.api_client = APIClient("http://127.0.0.1:8000")
         self.product_card = ProductInfoCard()
-        self.history = []  # Initialize empty history
+        # Load existing history from storage
+        try:
+            saved_history = page.client_storage.get("scan_history")
+            self.history = json.loads(saved_history) if saved_history else []
+        except Exception as e:
+            print(f"Error loading history: {e}")
+            self.history = []
         
         super().__init__(
             "/",
@@ -186,7 +200,7 @@ class MainView(ft.View):
                 self.history.insert(0, new_item)
                 self.history = self.history[:10]  # Keep only last 10
                 
-                # Save to storage
+                # Save to storage using async
                 await self.page.client_storage.set_async("scan_history", json.dumps(self.history))
                 
                 # Create and add history item to view
@@ -201,7 +215,8 @@ class MainView(ft.View):
                     if isinstance(view, HistoryView):
                         view.history_column.controls.insert(0, history_item)
                         view.history_column.controls = view.history_column.controls[:10]
-                        view.update()
+                        view.history_column.update()  # Update the column
+                        view.update()  # Update the entire view
                         break
                 
                 self.status_text.value = "Scan successful"
@@ -223,7 +238,7 @@ class ScannerApp:
     def initialize(self, page: ft.Page):
         self.page = page
         self.page.title = "Scanner Input"
-        self.page.padding = 0  # Removed padding since views have their own padding
+        self.page.padding = 0
         self.page.theme_mode = ft.ThemeMode.SYSTEM
         self.page.window_width = 400
         
@@ -234,9 +249,26 @@ class ScannerApp:
         self.page.views.append(self.main_view)
         self.page.views.append(self.history_view)
         
-        def route_change(route):
+        async def route_change(route):
             self.page.views.clear()
             if page.route == "/history":
+                # Reload history data when switching to history view
+                try:
+                    saved_history = await page.client_storage.get_async("scan_history")
+                    if saved_history:
+                        history = json.loads(saved_history)
+                        self.history_view.history_column.controls.clear()
+                        for item in history:
+                            product = ProductInfo(**item["product"])
+                            history_item = create_history_item(
+                                item["barcode"], 
+                                product,
+                                datetime.fromisoformat(item["timestamp"])
+                            )
+                            self.history_view.history_column.controls.append(history_item)
+                except Exception as e:
+                    print(f"Error loading history: {e}")
+                
                 self.page.views.append(self.history_view)
             else:
                 self.page.views.append(self.main_view)
