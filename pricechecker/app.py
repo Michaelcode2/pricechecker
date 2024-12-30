@@ -11,33 +11,53 @@ class HistoryView(ft.View):
         super().__init__()
         self.page = page
         
-        # Create a container that expands to full width
-        self.history_column = ft.Column(
-            spacing=10,
-            expand=True,  # Make column take full width
-            scroll=True
-        )
-        
-        # Wrap the column in a container for padding
-        self.container = ft.Container(
-            content=self.history_column,
-            padding=10,
-            expand=True  # Make container take full width
-        )
-        
-        # Set the view's controls with AppBar including leading back button
-        self.controls = [
-            ft.AppBar(
-                leading=ft.IconButton(ft.icons.ARROW_BACK, on_click=self.go_back),
-                title=ft.Text("Scan History"),
-                bgcolor=ft.colors.SURFACE_VARIANT
+        # Create a container for history items
+        self.history_container = ft.Container(
+            content=ft.ListView(
+                spacing=10,
+                expand=True,
             ),
-            self.container
+            padding=10,
+            expand=True
+        )
+        
+        # Set the view's controls with Stack layout
+        self.controls = [
+            ft.Stack(
+                [
+                    ft.Container(
+                        content=ft.Column(
+                            [
+                                ft.Container(
+                                    content=ft.Row(
+                                        [
+                                            ft.IconButton(ft.icons.ARROW_BACK, on_click=self.go_back),
+                                            ft.Text("Scan History", size=20, weight=ft.FontWeight.BOLD),
+                                            ft.IconButton(ft.icons.DELETE_OUTLINE, on_click=self.clear_history),
+                                        ],
+                                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    ),
+                                    bgcolor=ft.colors.SURFACE_VARIANT,
+                                    padding=10,
+                                ),
+                                self.history_container
+                            ],
+                            spacing=0,
+                            expand=True
+                        ),
+                        expand=True
+                    )
+                ],
+                expand=True
+            )
         ]
         
-        # Load saved history when view is created
+        # Load existing history
+        self.load_history()
+    
+    def load_history(self):
         try:
-            saved_history = page.client_storage.get("scan_history")
+            saved_history = self.page.client_storage.get("scan_history")
             if saved_history:
                 history = json.loads(saved_history)
                 for item in history:
@@ -47,9 +67,34 @@ class HistoryView(ft.View):
                         product,
                         datetime.fromisoformat(item["timestamp"])
                     )
-                    self.history_column.controls.append(history_item)
+                    self.history_container.content.controls.append(history_item)
         except Exception as e:
             print(f"Error loading history: {e}")
+    
+    async def clear_history(self, _):
+        try:
+            print("Clearing history...")
+            # Clear storage using set instead of remove to ensure it's empty
+            await self.page.client_storage.set_async("scan_history", "[]")
+            
+            # Verify the storage is cleared - use async version
+            current_storage = await self.page.client_storage.get_async("scan_history")
+            #print(f"Storage after clearing: {current_storage}")
+            
+            # Clear ListView
+            self.history_container.content.controls.clear()
+            self.history_container.content.update()
+            
+            # Update main view's history
+            for view in self.page.views:
+                if isinstance(view, MainView):
+                    view.history = []
+                    break
+                    
+            self.page.update()
+        except Exception as e:
+            print(f"Error clearing history: {e}")
+            #raise e  # This will help us see the full error if something goes wrong
     
     def go_back(self, _):
         self.page.go('/')
@@ -213,10 +258,12 @@ class MainView(ft.View):
                 # Update history view if it exists
                 for view in self.page.views:
                     if isinstance(view, HistoryView):
-                        view.history_column.controls.insert(0, history_item)
-                        view.history_column.controls = view.history_column.controls[:10]
-                        view.history_column.update()  # Update the column
+                        view.history_container.content.controls.insert(0, history_item)
+                        view.history_container.content.controls = view.history_container.content.controls[:10]
+                        view.history_container.content.update()  # Update the ListView
+                        view.history_container.update()  # Update the container
                         view.update()  # Update the entire view
+                        self.page.update()  # Update the page
                         break
                 
                 self.status_text.value = "Scan successful"
@@ -244,31 +291,12 @@ class ScannerApp:
         
         # Setup routing
         self.main_view = MainView(page)
-        self.history_view = HistoryView(page)
         
-        self.page.views.append(self.main_view)
-        self.page.views.append(self.history_view)
-        
-        async def route_change(route):
+        def route_change(route):
             self.page.views.clear()
             if page.route == "/history":
-                # Reload history data when switching to history view
-                try:
-                    saved_history = await page.client_storage.get_async("scan_history")
-                    if saved_history:
-                        history = json.loads(saved_history)
-                        self.history_view.history_column.controls.clear()
-                        for item in history:
-                            product = ProductInfo(**item["product"])
-                            history_item = create_history_item(
-                                item["barcode"], 
-                                product,
-                                datetime.fromisoformat(item["timestamp"])
-                            )
-                            self.history_view.history_column.controls.append(history_item)
-                except Exception as e:
-                    print(f"Error loading history: {e}")
-                
+                # Create a new HistoryView each time we navigate to it
+                self.history_view = HistoryView(page)
                 self.page.views.append(self.history_view)
             else:
                 self.page.views.append(self.main_view)
