@@ -1,0 +1,13 @@
+
+# python caches
+**/__pycache__/
+*.pyc
+
+# history
+.history
+
+# venv
+.venv
+
+# TODO
+.TODO
