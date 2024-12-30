@@ -4,6 +4,7 @@ from .handlers import handle_scan
 from .utils import create_history_item
 from .api_client import APIClient
 from .models import ProductInfo
+import json  # Add this import at the top
 
 class HistoryView(ft.View):
     def __init__(self, page: ft.Page):
@@ -25,6 +26,22 @@ class HistoryView(ft.View):
         )
         self.page = page
         self.history_column = self.controls[1]
+        
+        # Load saved history when view is created
+        try:
+            saved_history = self.page.client_storage.get("scan_history")
+            if saved_history:
+                history = json.loads(saved_history)
+                for item in history:
+                    product = ProductInfo(**item["product"])
+                    history_item = create_history_item(
+                        item["barcode"], 
+                        product,
+                        datetime.fromisoformat(item["timestamp"])
+                    )
+                    self.history_column.controls.append(history_item)
+        except Exception as e:
+            print(f"Error loading history: {e}")
     
     def go_back(self, _):
         self.page.go('/')
@@ -67,11 +84,13 @@ class ProductInfoCard(ft.Card):
                     ),
                 ])
             )
+        self.update()
 
 class MainView(ft.View):
     def __init__(self, page: ft.Page):
         self.api_client = APIClient("http://127.0.0.1:8000")
         self.product_card = ProductInfoCard()
+        self.history = []  # Initialize empty history
         
         super().__init__(
             "/",
@@ -149,18 +168,50 @@ class MainView(ft.View):
             # Update product info card
             self.product_card.update_info(product)
             
-            # Find history view and add to its history
-            for view in self.page.views:
-                if isinstance(view, HistoryView):
-                    view.history_column.controls.insert(
-                        0,
-                        create_history_item(self.scan_field.value, product)
-                    )
-                    break
+            # Create new history item
+            new_item = {
+                "barcode": self.scan_field.value,
+                "product": {
+                    "name": product.name,
+                    "measurement": product.measurement,
+                    "price": product.price,
+                    "discount_price": product.discount_price
+                },
+                "timestamp": datetime.now().isoformat()
+            }
             
-            self.status_text.value = "Scan successful"
-            self.status_text.color = "green"
-        
+            # Save to storage
+            try:
+                # Add new item to history
+                self.history.insert(0, new_item)
+                self.history = self.history[:10]  # Keep only last 10
+                
+                # Save to storage
+                await self.page.client_storage.set_async("scan_history", json.dumps(self.history))
+                
+                # Create and add history item to view
+                history_item = create_history_item(
+                    new_item["barcode"], 
+                    product,
+                    datetime.fromisoformat(new_item["timestamp"])
+                )
+                
+                # Update history view if it exists
+                for view in self.page.views:
+                    if isinstance(view, HistoryView):
+                        view.history_column.controls.insert(0, history_item)
+                        view.history_column.controls = view.history_column.controls[:10]
+                        view.update()
+                        break
+                
+                self.status_text.value = "Scan successful"
+                self.status_text.color = "green"
+                
+            except Exception as e:
+                print(f"Error saving to storage: {e}")
+                self.status_text.value = "Error saving history"
+                self.status_text.color = "red"
+            
         self.scan_field.value = ""
         self.page.update()
         self.scan_field.focus()

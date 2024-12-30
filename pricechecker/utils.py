@@ -2,37 +2,31 @@ import flet as ft
 from datetime import datetime
 from .models import ProductInfo
 
-def create_history_item(scan_code: str, product: ProductInfo = None) -> ft.Container:
-    timestamp = datetime.now().strftime("%H:%M:%S")
+def create_history_item(barcode: str, product: ProductInfo, timestamp: datetime = None):
+    if timestamp is None:
+        timestamp = datetime.now()
     
-    content = [
-        ft.Row([
-            ft.Text(f"Code: {scan_code}", size=14),
-            ft.Text(timestamp, size=12, color=ft.colors.GREY_700),
-        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+    # Create base column controls
+    column_controls = [
+        ft.Text(
+            f"Scanned: {timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+            size=12,
+            color=ft.colors.GREY_700
+        ),
+        ft.Text(product.name, size=16, weight=ft.FontWeight.BOLD),
+        ft.Text(f"Barcode: {barcode}"),
+        ft.Text(f"Price: ${product.price:.2f}")
     ]
     
-    if product:
-        content.extend([
-            ft.Text(product.name, size=16, weight=ft.FontWeight.BOLD),
-            ft.Row([
-                ft.Text(f"${product.price:.2f}", size=14),
-                ft.Text(product.measurement, size=14),
-            ]),
-        ])
-        
-        if product.discount_price:
-            content.append(
-                ft.Text(
-                    f"Discount: ${product.discount_price:.2f}",
-                    size=14,
-                    color=ft.colors.RED
-                )
-            )
+    # Add discount field only if there is a discount
+    if product.discount_price:
+        column_controls.append(
+            ft.Text(f"Discount: ${product.discount_price:.2f}")
+        )
     
-    return ft.Container(
-        content=ft.Column(content, spacing=4),
-        bgcolor=ft.colors.BLUE_GREY_50,
-        padding=10,
-        border_radius=8,
+    return ft.Card(
+        content=ft.Container(
+            content=ft.Column(column_controls, spacing=5),
+            padding=10
+        )
     )
