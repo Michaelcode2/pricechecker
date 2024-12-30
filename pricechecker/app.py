@@ -1,10 +1,11 @@
 import flet as ft
+import json
 from datetime import datetime
 from .handlers import handle_scan
 from .utils import create_history_item
 from .api_client import APIClient
 from .models import ProductInfo
-import json  # Add this import at the top
+
 
 class HistoryView(ft.View):
     def __init__(self, page: ft.Page):
@@ -141,7 +142,9 @@ class ProductInfoCard(ft.Card):
 
 class MainView(ft.View):
     def __init__(self, page: ft.Page):
-        self.api_client = APIClient("http://127.0.0.1:8000")
+        # Load settings
+        settings = self.load_settings()
+        self.api_client = APIClient(settings.get("api_url", "http://127.0.0.1:8000"))
         self.product_card = ProductInfoCard()
         # Load existing history from storage
         try:
@@ -191,11 +194,23 @@ class MainView(ft.View):
                             ], spacing=10),
                         ], spacing=10, expand=True),
                         ft.Container(
-                            content=ft.ElevatedButton(
-                                "View History",
-                                on_click=lambda _: page.go("/history"),
-                                width=200,
-                                height=50,
+                            content=ft.Row(
+                                [
+                                    ft.ElevatedButton(
+                                        "View History",
+                                        on_click=lambda _: page.go("/history"),
+                                        width=200,
+                                        height=50,
+                                    ),
+                                    ft.ElevatedButton(
+                                        "Settings",
+                                        on_click=lambda _: page.go("/config"),
+                                        width=200,
+                                        height=50,
+                                    ),
+                                ],
+                                alignment=ft.MainAxisAlignment.CENTER,
+                                spacing=10,
                             ),
                             alignment=ft.alignment.center,
                             bottom=20,
@@ -277,6 +292,128 @@ class MainView(ft.View):
         self.scan_field.value = ""
         self.page.update()
         self.scan_field.focus()
+    
+    def load_settings(self):
+        try:
+            saved_settings = self.page.client_storage.get("app_settings")
+            return json.loads(saved_settings) if saved_settings else {}
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+            return {}
+
+class ConfigView(ft.View):
+    def __init__(self, page: ft.Page):
+        super().__init__()
+        self.page = page
+        
+        # Load saved settings
+        self.settings = self.load_settings()
+        
+        # Create input fields
+        self.api_url_field = ft.TextField(
+            label="API URL",
+            value=self.settings.get("api_url", "http://127.0.0.1:8000"),
+            width=None,
+            expand=True
+        )
+        
+        self.scan_timeout_field = ft.TextField(
+            label="Scan Timeout (seconds)",
+            value=str(self.settings.get("scan_timeout", 1.0)),
+            width=None,
+            expand=True,
+            input_filter=ft.NumbersOnlyInputFilter()
+        )
+        
+        self.min_length_field = ft.TextField(
+            label="Minimum Scan Length",
+            value=str(self.settings.get("min_scan_length", 10)),
+            width=None,
+            expand=True,
+            input_filter=ft.NumbersOnlyInputFilter()
+        )
+        
+        self.max_length_field = ft.TextField(
+            label="Maximum Scan Length",
+            value=str(self.settings.get("max_scan_length", 13)),
+            width=None,
+            expand=True,
+            input_filter=ft.NumbersOnlyInputFilter()
+        )
+        
+        # Set the view's controls
+        self.controls = [
+            ft.Stack(
+                [
+                    ft.Container(
+                        content=ft.Column(
+                            [
+                                ft.Container(
+                                    content=ft.Row(
+                                        [
+                                            ft.IconButton(ft.icons.ARROW_BACK, on_click=self.go_back),
+                                            ft.Text("Settings", size=20, weight=ft.FontWeight.BOLD),
+                                            ft.IconButton(ft.icons.SAVE, on_click=self.save_settings),
+                                        ],
+                                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    ),
+                                    bgcolor=ft.colors.SURFACE_VARIANT,
+                                    padding=10,
+                                ),
+                                ft.Container(
+                                    content=ft.Column(
+                                        [
+                                            self.api_url_field,
+                                            self.scan_timeout_field,
+                                            self.min_length_field,
+                                            self.max_length_field,
+                                        ],
+                                        spacing=20,
+                                    ),
+                                    padding=20,
+                                )
+                            ],
+                            spacing=0,
+                            expand=True
+                        ),
+                        expand=True
+                    )
+                ],
+                expand=True
+            )
+        ]
+    
+    def load_settings(self):
+        try:
+            saved_settings = self.page.client_storage.get("app_settings")
+            return json.loads(saved_settings) if saved_settings else {}
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+            return {}
+    
+    async def save_settings(self, _):
+        try:
+            settings = {
+                "api_url": self.api_url_field.value,
+                "scan_timeout": float(self.scan_timeout_field.value),
+                "min_scan_length": int(self.min_length_field.value),
+                "max_scan_length": int(self.max_length_field.value)
+            }
+            
+            await self.page.client_storage.set_async("app_settings", json.dumps(settings))
+            
+            # Update MainView settings
+            for view in self.page.views:
+                if isinstance(view, MainView):
+                    view.api_client.base_url = settings["api_url"]
+                    break
+            
+            self.page.show_snack_bar(ft.SnackBar(content=ft.Text("Settings saved successfully")))
+        except Exception as e:
+            self.page.show_snack_bar(ft.SnackBar(content=ft.Text(f"Error saving settings: {e}")))
+    
+    def go_back(self, _):
+        self.page.go('/')
 
 class ScannerApp:
     def __init__(self):
@@ -295,9 +432,11 @@ class ScannerApp:
         def route_change(route):
             self.page.views.clear()
             if page.route == "/history":
-                # Create a new HistoryView each time we navigate to it
                 self.history_view = HistoryView(page)
                 self.page.views.append(self.history_view)
+            elif page.route == "/config":
+                self.config_view = ConfigView(page)
+                self.page.views.append(self.config_view)
             else:
                 self.page.views.append(self.main_view)
             self.page.update()
