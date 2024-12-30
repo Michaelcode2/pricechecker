@@ -70,57 +70,70 @@ class ProductInfoCard(ft.Card):
 
 class MainView(ft.View):
     def __init__(self, page: ft.Page):
-        self.api_client = APIClient("http://127.0.0.1:8000")  # Replace with your API URL
+        self.api_client = APIClient("http://127.0.0.1:8000")
         self.product_card = ProductInfoCard()
         
         super().__init__(
             "/",
             [
-                ft.Text("Price Checker", size=24, weight=ft.FontWeight.BOLD),
-                ft.Column([
-                    ft.Row(
-                        [
-                            ft.TextField(
-                                label="Scan here",
-                                width=None,
-                                expand=True,
-                                autofocus=True,
-                                on_submit=self.on_scan,
-                                multiline=False,
-                                text_size=18,
-                            ),
-                            ft.ElevatedButton(
-                                "Submit",
-                                on_click=self.on_scan,
-                                width=100,
-                                height=50,
-                                style=ft.ButtonStyle(
-                                    padding=ft.padding.all(15),
+                ft.Stack(
+                    [
+                        ft.Column([
+                            ft.Text("Price Checker", size=24, weight=ft.FontWeight.BOLD),
+                            ft.Column([
+                                ft.Row(
+                                    [
+                                        ft.TextField(
+                                            label="Scan here",
+                                            width=None,
+                                            expand=True,
+                                            autofocus=True,
+                                            on_submit=self.on_scan,
+                                            multiline=False,
+                                            text_size=18,
+                                        ),
+                                        ft.ElevatedButton(
+                                            "Submit",
+                                            on_click=self.on_scan,
+                                            width=100,
+                                            height=50,
+                                            style=ft.ButtonStyle(
+                                                padding=ft.padding.all(15),
+                                            ),
+                                        ),
+                                    ],
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    spacing=10,
                                 ),
+                                ft.Text(
+                                    size=16,
+                                    color=ft.colors.GREY_700
+                                ),
+                                self.product_card,
+                            ], spacing=10),
+                        ], spacing=10, expand=True),
+                        ft.Container(
+                            content=ft.ElevatedButton(
+                                "View History",
+                                on_click=lambda _: page.go("/history"),
+                                width=200,
+                                height=50,
                             ),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        spacing=10,
-                    ),
-                    ft.Text(
-                        size=16,
-                        color=ft.colors.GREY_700
-                    ),
-                    self.product_card,  # Add product info card
-                    ft.ElevatedButton(
-                        "View History",
-                        on_click=lambda _: page.go("/history"),
-                        width=None,
-                        height=50,
-                    ),
-                ], spacing=10)
+                            alignment=ft.alignment.center,
+                            bottom=20,
+                            left=0,
+                            right=0,
+                        ),
+                    ],
+                    expand=True
+                )
             ],
             padding=10,
             spacing=10
         )
         self.page = page
-        self.scan_field = self.controls[1].controls[0].controls[0]
-        self.status_text = self.controls[1].controls[1]
+        self.scan_field = self.controls[0].controls[0].controls[1].controls[0].controls[0]
+        self.status_text = self.controls[0].controls[0].controls[1].controls[1]
         
     async def on_scan(self, e):
         if not self.scan_field.value:
