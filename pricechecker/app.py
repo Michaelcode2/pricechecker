@@ -228,6 +228,16 @@ class MainView(ft.View):
         self.scan_field = self.controls[0].controls[0].controls[1].controls[0].controls[0]
         self.status_text = self.controls[0].controls[0].controls[1].controls[1]
         
+        # Add keyboard listener to the page
+        self.page.on_keyboard_event = self.handle_keyboard_event
+    
+    def handle_keyboard_event(self, e: ft.KeyboardEvent):
+        """Handle keyboard events globally"""
+        # Refocus the scan field unless we're in a different view
+        if self.page.route == "/":
+            self.scan_field.focus()
+            self.page.update()
+    
     async def on_scan(self, e):
         if not self.scan_field.value:
             return
