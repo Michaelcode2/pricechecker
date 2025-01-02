@@ -435,6 +435,7 @@ class ScannerApp:
         self.page.padding = 0
         self.page.theme_mode = ft.ThemeMode.SYSTEM
         self.page.window_width = 400
+        self.page.window.prevent_close = True
         
         # Setup routing
         self.main_view = MainView(page)
@@ -450,8 +451,30 @@ class ScannerApp:
             else:
                 self.page.views.append(self.main_view)
             self.page.update()
+        
+        def view_pop(_):
+            if len(self.page.views) > 1:
+                # Remove current view
+                self.page.views.pop()
+                # Update to show previous view
+                self.page.update()
+            else:
+                # We're at the main view, show exit dialog
+                self.show_exit_dialog()
+        
+        async def show_exit_dialog():
+            dialog = ft.AlertDialog(
+                title=ft.Text("Exit Application"),
+                content=ft.Text("Do you want to exit?"),
+                actions=[
+                    ft.TextButton("No", on_click=lambda _: self.page.close_dialog()),
+                    ft.TextButton("Yes", on_click=lambda _: self.page.window.destroy()),
+                ],
+            )
+            await self.page.show_dialog_async(dialog)
             
         self.page.on_route_change = route_change
+        self.page.on_view_pop = view_pop
         self.page.go('/')
 
 app = ScannerApp()
