@@ -68,6 +68,7 @@ class HistoryView(ft.View):
                     history_item = create_history_item(
                         item["barcode"], 
                         product,
+                        TRANSLATIONS[self.language],
                         datetime.fromisoformat(item["timestamp"])
                     )
                     self.history_container.content.controls.append(history_item)
@@ -184,13 +185,19 @@ class ProductInfoCard(ft.Card):
 
 class MainView(ft.View):
     def __init__(self, page: ft.Page, language: str = "en"):
+        # Call parent class __init__ first with route
+        super().__init__(route="/")
+        
+        # Set instance variables
+        self.page = page
         self.language = language
-        self.t = TRANSLATIONS[language]  # Get translations for current language
+        self.t = TRANSLATIONS[language]
         
         # Load settings
         settings = self.load_settings()
         self.api_client = APIClient(settings.get("api_url", "http://127.0.0.1:8000"))
         self.product_card = ProductInfoCard(language)
+        
         # Load existing history from storage
         try:
             saved_history = page.client_storage.get("scan_history")
@@ -199,83 +206,72 @@ class MainView(ft.View):
             print(f"Error loading history: {e}")
             self.history = []
         
-        super().__init__(
-            "/",
-            [
-                ft.Stack(
-                    [
-                        ft.Column([
-                            ft.Text(self.t["app_title"], size=24, weight=ft.FontWeight.BOLD),
-                            ft.Column([
-                                ft.Row(
-                                    [
-                                        ft.TextField(
-                                            label=self.t["scan_here"],
-                                            width=None,
-                                            expand=True,
-                                            autofocus=True,
-                                            on_submit=self.on_scan,
-                                            multiline=False,
-                                            text_size=18,
-                                            keyboard_type=ft.KeyboardType.NONE,
-                                        ),
-                                        ft.IconButton(
-                                            icon=ft.icons.KEYBOARD,
-                                            on_click=self.toggle_keyboard,
-                                            tooltip="Toggle keyboard",
-                                        ),
-                                        ft.ElevatedButton(
-                                            self.t["submit"],
-                                            on_click=self.on_scan,
-                                            width=100,
-                                            height=50,
-                                            style=ft.ButtonStyle(
-                                                padding=ft.padding.all(15),
-                                            ),
-                                        ),
-                                    ],
-                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                    spacing=10,
-                                ),
-                                ft.Text(
-                                    size=16,
-                                    color=ft.colors.GREY_700
-                                ),
-                                self.product_card,
-                            ], spacing=10),
-                        ], spacing=10, expand=True),
-                        ft.Container(
-                            content=ft.Row(
-                                [
-                                    ft.ElevatedButton(
-                                        self.t["view_history"],
-                                        on_click=lambda _: page.go("/history"),
-                                        width=200,
-                                        height=50,
-                                    ),
-                                    ft.ElevatedButton(
-                                        self.t["settings"],
-                                        on_click=self.show_settings_dialog,
-                                        width=200,
-                                        height=50,
-                                    ),
-                                ],
-                                alignment=ft.MainAxisAlignment.CENTER,
-                                spacing=10,
+        # Set up controls
+        self.controls = [
+            ft.Stack([
+                ft.Column([
+                    ft.Text(self.t["app_title"], size=24, weight=ft.FontWeight.BOLD),
+                    ft.Column([
+                        ft.Row([
+                            ft.TextField(
+                                label=self.t["scan_here"],
+                                width=None,
+                                expand=True,
+                                autofocus=True,
+                                on_submit=self.on_scan,
+                                multiline=False,
+                                text_size=18,
+                                keyboard_type=ft.KeyboardType.NONE,
                             ),
-                            alignment=ft.alignment.center,
-                            bottom=20,
-                            left=0,
-                            right=0,
+                            ft.IconButton(
+                                icon=ft.icons.KEYBOARD,
+                                on_click=self.toggle_keyboard,
+                                tooltip="Toggle keyboard",
+                            ),
+                            ft.ElevatedButton(
+                                self.t["submit"],
+                                on_click=self.on_scan,
+                                width=100,
+                                height=50,
+                                style=ft.ButtonStyle(
+                                    padding=ft.padding.all(15),
+                                ),
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        spacing=10),
+                        ft.Text(
+                            size=16,
+                            color=ft.colors.GREY_700
+                        ),
+                        self.product_card,
+                    ], spacing=10),
+                ], spacing=10, expand=True),
+                ft.Container(
+                    content=ft.Row([
+                        ft.ElevatedButton(
+                            self.t["view_history"],
+                            on_click=lambda _: page.go("/history"),
+                            width=200,
+                            height=50,
+                        ),
+                        ft.ElevatedButton(
+                            self.t["settings"],
+                            on_click=self.show_settings_dialog,
+                            width=200,
+                            height=50,
                         ),
                     ],
-                    expand=True
-                )
-            ],
-            padding=10,
-            spacing=10
-        )
-        self.page = page
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=10),
+                    alignment=ft.alignment.center,
+                    bottom=20,
+                    left=0,
+                    right=0,
+                ),
+            ], expand=True)
+        ]
+        
         self.scan_field = self.controls[0].controls[0].controls[1].controls[0].controls[0]
         self.status_text = self.controls[0].controls[0].controls[1].controls[1]
         
@@ -285,7 +281,7 @@ class MainView(ft.View):
         # Add dialog definition
         self.settings_dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text("Confirm"),
+            title=ft.Text(TRANSLATIONS[self.language]["settings_confirm"]),
             content=ft.Text(TRANSLATIONS[self.language]["settings_confirm"]),
             actions=[
                 ft.TextButton(TRANSLATIONS[self.language]["yes"], on_click=self.open_settings),
@@ -296,10 +292,13 @@ class MainView(ft.View):
     
     def handle_keyboard_event(self, e: ft.KeyboardEvent):
         """Handle keyboard events globally"""
-        # Refocus the scan field unless we're in a different view
-        if self.page.route == "/":
-            self.scan_field.focus()
-            self.page.update()
+        try:
+            # Check if page and route exist before accessing
+            if hasattr(self, 'page') and self.page and self.page.route == "/":
+                self.scan_field.focus()
+                self.page.update()
+        except Exception as e:
+            print(f"Error handling keyboard event: {e}")
     
     async def on_scan(self, e):
         if not self.scan_field.value:
@@ -420,68 +419,74 @@ class ConfigView(ft.View):
             label=TRANSLATIONS[self.language]["scan_timeout"],
             value=str(self.settings.get("scan_timeout", 1.0)),
             width=None,
-            expand=True,
-            input_filter=ft.NumbersOnlyInputFilter()
+            expand=True
         )
         
         self.min_length_field = ft.TextField(
             label=TRANSLATIONS[self.language]["min_length"],
-            value=str(self.settings.get("min_scan_length", 10)),
+            value=str(self.settings.get("min_scan_length", 4)),
             width=None,
-            expand=True,
-            input_filter=ft.NumbersOnlyInputFilter()
+            expand=True
         )
         
         self.max_length_field = ft.TextField(
             label=TRANSLATIONS[self.language]["max_length"],
-            value=str(self.settings.get("max_scan_length", 13)),
+            value=str(self.settings.get("max_scan_length", 43)),
+            width=None,
+            expand=True
+        )
+
+        # Add language dropdown
+        self.language_dropdown = ft.Dropdown(
+            label=TRANSLATIONS[self.language]["language"],
             width=None,
             expand=True,
-            input_filter=ft.NumbersOnlyInputFilter()
+            value=self.language,
+            options=[
+                ft.dropdown.Option("ukr", "Українська"),
+                ft.dropdown.Option("en", "English"),
+            ],
         )
-        
-        # Set the view's controls
+
+        # Add back button and title
         self.controls = [
-            ft.Stack(
-                [
+            ft.Container(
+                content=ft.Column([
+                    # Header with back button and save button
                     ft.Container(
-                        content=ft.Column(
+                        content=ft.Row(
                             [
-                                ft.Container(
-                                    content=ft.Row(
-                                        [
-                                            ft.IconButton(ft.icons.ARROW_BACK, on_click=self.go_back),
-                                            ft.Text(TRANSLATIONS[self.language]["settings"], size=20, weight=ft.FontWeight.BOLD),
-                                            ft.IconButton(ft.icons.SAVE, on_click=self.save_settings),
-                                        ],
-                                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                    ),
-                                    bgcolor=ft.colors.SURFACE_VARIANT,
-                                    padding=10,
-                                ),
-                                ft.Container(
-                                    content=ft.Column(
-                                        [
-                                            self.api_url_field,
-                                            self.scan_timeout_field,
-                                            self.min_length_field,
-                                            self.max_length_field,
-                                        ],
-                                        spacing=20,
-                                    ),
-                                    padding=20,
-                                )
+                                ft.IconButton(ft.icons.ARROW_BACK, on_click=self.go_back),
+                                ft.Text(TRANSLATIONS[self.language]["settings"], size=20, weight=ft.FontWeight.BOLD),
+                                ft.IconButton(ft.icons.SAVE, on_click=self.save_settings),
                             ],
-                            spacing=0,
-                            expand=True
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                         ),
-                        expand=True
-                    )
+                        bgcolor=ft.colors.SURFACE_VARIANT,
+                        padding=10,
+                    ),
+                    # Settings form
+                    ft.Container(
+                        content=ft.Column([
+                            self.language_dropdown,
+                            self.api_url_field,
+                            self.scan_timeout_field,
+                            self.min_length_field,
+                            self.max_length_field,
+                        ], 
+                        spacing=20,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        padding=20,
+                    ),
                 ],
-                expand=True
+                spacing=0,
+                expand=True,
+                ),
+                expand=True,
             )
         ]
-    
+
     def load_settings(self):
         try:
             saved_settings = self.page.client_storage.get("app_settings")
@@ -489,17 +494,21 @@ class ConfigView(ft.View):
         except Exception as e:
             print(f"Error loading settings: {e}")
             return {}
-    
-    async def save_settings(self, _):
+
+    def go_back(self, _):
+        self.page.go('/')
+
+    def save_settings(self, _):
         try:
             settings = {
                 "api_url": self.api_url_field.value,
                 "scan_timeout": float(self.scan_timeout_field.value),
                 "min_scan_length": int(self.min_length_field.value),
-                "max_scan_length": int(self.max_length_field.value)
+                "max_scan_length": int(self.max_length_field.value),
+                "language": self.language_dropdown.value
             }
             
-            await self.page.client_storage.set_async("app_settings", json.dumps(settings))
+            self.page.client_storage.set("app_settings", json.dumps(settings))
             
             # Update MainView settings
             for view in self.page.views:
@@ -507,12 +516,29 @@ class ConfigView(ft.View):
                     view.api_client.base_url = settings["api_url"]
                     break
             
-            self.page.show_snack_bar(ft.SnackBar(content=ft.Text(TRANSLATIONS[self.language]["settings_saved"])))
+            # Update language if changed
+            if settings["language"] != self.language:
+                app = self.page.data.get("app")
+                if app:
+                    app.change_language(settings["language"])
+            
+            # Show success message
+            self.page.snack_bar = ft.SnackBar(
+                content=ft.Text(TRANSLATIONS[self.language]["settings_saved"])
+            )
+            self.page.snack_bar.open = True
+            self.page.update()
+            
+            # Navigate back to main view
+            self.page.go('/')
+
         except Exception as e:
-            self.page.show_snack_bar(ft.SnackBar(content=ft.Text(f"Error saving settings: {e}")))
-    
-    def go_back(self, _):
-        self.page.go('/')
+            # Show error message
+            self.page.snack_bar = ft.SnackBar(
+                content=ft.Text(f"Error saving settings: {e}")
+            )
+            self.page.snack_bar.open = True
+            self.page.update()
 
 class ScannerApp:
     def __init__(self):
@@ -526,41 +552,32 @@ class ScannerApp:
         self.page.theme_mode = ft.ThemeMode.SYSTEM
         self.page.window_width = 400
         
-        # Load saved language preference
-        try:
-            saved_lang = self.page.client_storage.get("language")
-            if saved_lang:
-                self.language = saved_lang
-        except Exception:
-            pass
+        # Store app instance in page data for access from other views
+        self.page.data = {"app": self}
         
-        # Add language selector to the app bar
-        self.page.appbar = ft.AppBar(
-            title=ft.Text(TRANSLATIONS[self.language]["app_title"]),
-            center_title=True,
-            actions=[
-                ft.PopupMenuButton(
-                    items=[
-                        ft.PopupMenuItem(text="English", on_click=lambda _: self.change_language("en")),
-                        ft.PopupMenuItem(text="Українська", on_click=lambda _: self.change_language("ukr")),
-                    ]
-                )
-            ]
-        )
+        # Load saved settings
+        try:
+            saved_settings = page.client_storage.get("app_settings")
+            settings = json.loads(saved_settings) if saved_settings else {}
+            self.language = settings.get("language", "ukr")
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+            self.language = "ukr"
         
         # Setup routing
         self.main_view = MainView(page, self.language)
         
         def route_change(route):
+            #print(f"Route changed to: {route.route}")  # Debug print
             self.page.views.clear()
-            if page.route == "/history":
-                self.history_view = HistoryView(page, self.language)
-                self.page.views.append(self.history_view)
-            elif page.route == "/config":
-                self.config_view = ConfigView(page, self.language)
-                self.page.views.append(self.config_view)
+            
+            if route.route == "/history":
+                self.page.views.append(HistoryView(page, self.language))
+            elif route.route == "/config":
+                self.page.views.append(ConfigView(page, self.language))
             else:
                 self.page.views.append(self.main_view)
+                
             self.page.update()
         
         self.page.on_route_change = route_change
