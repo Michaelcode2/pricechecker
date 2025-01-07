@@ -213,6 +213,11 @@ class MainView(ft.View):
                                             text_size=18,
                                             keyboard_type=ft.KeyboardType.NONE,
                                         ),
+                                        ft.IconButton(
+                                            icon=ft.icons.KEYBOARD,
+                                            on_click=self.toggle_keyboard,
+                                            tooltip="Toggle keyboard",
+                                        ),
                                         ft.ElevatedButton(
                                             "Submit",
                                             on_click=self.on_scan,
@@ -376,6 +381,17 @@ class MainView(ft.View):
         self.settings_dialog.open = False
         self.page.update()
         self.page.go("/config")
+    
+    def toggle_keyboard(self, _):
+        """Toggle between number keyboard and no keyboard"""
+        current_type = self.scan_field.keyboard_type
+        self.scan_field.keyboard_type = (
+            ft.KeyboardType.NUMBER 
+            if current_type == ft.KeyboardType.NONE 
+            else ft.KeyboardType.NONE
+        )
+        self.scan_field.focus()
+        self.page.update()
 
 class ConfigView(ft.View):
     def __init__(self, page: ft.Page):
