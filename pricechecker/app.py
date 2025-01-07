@@ -115,28 +115,67 @@ class ProductInfoCard(ft.Card):
         
     def update_info(self, product: ProductInfo):
         self.content.content.controls = [
-            ft.Text(product.name, size=18, weight=ft.FontWeight.BOLD),
-            ft.Row([
-                ft.Text("Measurement:", size=14),
-                ft.Text(product.measurement, size=14),
-            ]),
-            ft.Row([
-                ft.Text("Price:", size=16),
-                ft.Text(f"${product.price:.2f}", size=16, weight=ft.FontWeight.BOLD),
-            ]),
+            ft.Text(
+                product.name,
+                size=24,  # Increased from 18
+                weight=ft.FontWeight.BOLD,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            
+            ft.Row(
+                [
+                    ft.Text("Measurement:", size=14, color=ft.colors.GREY_700),
+                    ft.Text(product.measurement, size=14),
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
+            
+            ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Text("Price:", size=20),
+                        ft.Text(
+                            f"{product.price:.2f}",
+                            size=36,  # Increased from 16
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.colors.BLACK,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                ),
+                padding=ft.padding.symmetric(vertical=10),
+            ),
         ]
         
         if product.discount_price:
             self.content.content.controls.append(
-                ft.Row([
-                    ft.Text("Discount Price:", size=16, color=ft.colors.RED),
-                    ft.Text(
-                        f"${product.discount_price:.2f}",
-                        size=16,
-                        weight=ft.FontWeight.BOLD,
-                        color=ft.colors.RED
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.Text(
+                                "SPECIAL OFFER",
+                                size=16,
+                                color=ft.colors.RED,
+                                weight=ft.FontWeight.BOLD,
+                                text_align=ft.TextAlign.CENTER,
+                            ),
+                            ft.Row(
+                                [
+                                    ft.Text(
+                                        f"{product.discount_price:.2f}",
+                                        size=36,  # Even bigger discount price
+                                        weight=ft.FontWeight.BOLD,
+                                        color=ft.colors.RED,
+                                    ),
+                                ],
+                                alignment=ft.MainAxisAlignment.CENTER,
+                            ),
+                        ],
+                        spacing=5,
+                        alignment=ft.MainAxisAlignment.CENTER,
                     ),
-                ])
+                    padding=ft.padding.only(top=10),
+                )
             )
         self.update()
 
@@ -172,6 +211,7 @@ class MainView(ft.View):
                                             on_submit=self.on_scan,
                                             multiline=False,
                                             text_size=18,
+                                            keyboard_type=ft.KeyboardType.NONE,
                                         ),
                                         ft.ElevatedButton(
                                             "Submit",
@@ -204,7 +244,7 @@ class MainView(ft.View):
                                     ),
                                     ft.ElevatedButton(
                                         "Settings",
-                                        on_click=lambda _: page.go("/config"),
+                                        on_click=self.show_settings_dialog,
                                         width=200,
                                         height=50,
                                     ),
@@ -230,6 +270,18 @@ class MainView(ft.View):
         
         # Add keyboard listener to the page
         self.page.on_keyboard_event = self.handle_keyboard_event
+        
+        # Add dialog definition
+        self.settings_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Confirm"),
+            content=ft.Text("Are you really want to open Settings?"),
+            actions=[
+                ft.TextButton("Yes", on_click=self.open_settings),
+                ft.TextButton("No", on_click=self.close_dialog),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
     
     def handle_keyboard_event(self, e: ft.KeyboardEvent):
         """Handle keyboard events globally"""
@@ -310,6 +362,20 @@ class MainView(ft.View):
         except Exception as e:
             print(f"Error loading settings: {e}")
             return {}
+    
+    def show_settings_dialog(self, _):
+        self.page.dialog = self.settings_dialog
+        self.settings_dialog.open = True
+        self.page.update()
+    
+    def close_dialog(self, _):
+        self.settings_dialog.open = False
+        self.page.update()
+    
+    def open_settings(self, _):
+        self.settings_dialog.open = False
+        self.page.update()
+        self.page.go("/config")
 
 class ConfigView(ft.View):
     def __init__(self, page: ft.Page):
@@ -435,7 +501,6 @@ class ScannerApp:
         self.page.padding = 0
         self.page.theme_mode = ft.ThemeMode.SYSTEM
         self.page.window_width = 400
-        self.page.window.prevent_close = True
         
         # Setup routing
         self.main_view = MainView(page)
@@ -451,30 +516,8 @@ class ScannerApp:
             else:
                 self.page.views.append(self.main_view)
             self.page.update()
-        
-        def view_pop(_):
-            if len(self.page.views) > 1:
-                # Remove current view
-                self.page.views.pop()
-                # Update to show previous view
-                self.page.update()
-            else:
-                # We're at the main view, show exit dialog
-                self.show_exit_dialog()
-        
-        async def show_exit_dialog():
-            dialog = ft.AlertDialog(
-                title=ft.Text("Exit Application"),
-                content=ft.Text("Do you want to exit?"),
-                actions=[
-                    ft.TextButton("No", on_click=lambda _: self.page.close_dialog()),
-                    ft.TextButton("Yes", on_click=lambda _: self.page.window.destroy()),
-                ],
-            )
-            await self.page.show_dialog_async(dialog)
             
         self.page.on_route_change = route_change
-        self.page.on_view_pop = view_pop
         self.page.go('/')
 
 app = ScannerApp()
