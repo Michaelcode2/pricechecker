@@ -5,12 +5,14 @@ from .handlers import handle_scan
 from .utils import create_history_item
 from .api_client import APIClient
 from .models import ProductInfo
+from .languages import TRANSLATIONS
 
 
 class HistoryView(ft.View):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, language: str):
         super().__init__()
         self.page = page
+        self.language = language
         
         # Create a container for history items
         self.history_container = ft.Container(
@@ -33,7 +35,7 @@ class HistoryView(ft.View):
                                     content=ft.Row(
                                         [
                                             ft.IconButton(ft.icons.ARROW_BACK, on_click=self.go_back),
-                                            ft.Text("Scan History", size=20, weight=ft.FontWeight.BOLD),
+                                            ft.Text(TRANSLATIONS[self.language]["scan_history"], size=20, weight=ft.FontWeight.BOLD),
                                             ft.IconButton(ft.icons.DELETE_OUTLINE, on_click=self.clear_history),
                                         ],
                                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -101,12 +103,13 @@ class HistoryView(ft.View):
         self.page.go('/')
 
 class ProductInfoCard(ft.Card):
-    def __init__(self):
+    def __init__(self, language: str = "ukr"):
         super().__init__()
+        self.t = TRANSLATIONS[language]
         self.content = ft.Container(
             content=ft.Column(
                 [
-                    ft.Text("No product scanned", size=16),
+                    ft.Text(self.t["no_product"], size=16),
                 ],
                 spacing=10,
             ),
@@ -124,7 +127,7 @@ class ProductInfoCard(ft.Card):
             
             ft.Row(
                 [
-                    ft.Text("Measurement:", size=14, color=ft.colors.GREY_700),
+                    ft.Text(self.t["measurement"], size=14, color=ft.colors.GREY_700),
                     ft.Text(product.measurement, size=14),
                 ],
                 alignment=ft.MainAxisAlignment.CENTER,
@@ -133,7 +136,7 @@ class ProductInfoCard(ft.Card):
             ft.Container(
                 content=ft.Row(
                     [
-                        ft.Text("Price:", size=20),
+                        ft.Text(self.t["price"], size=20),
                         ft.Text(
                             f"{product.price:.2f}",
                             size=36,  # Increased from 16
@@ -153,7 +156,7 @@ class ProductInfoCard(ft.Card):
                     content=ft.Column(
                         [
                             ft.Text(
-                                "SPECIAL OFFER",
+                                self.t["special_offer"],
                                 size=16,
                                 color=ft.colors.RED,
                                 weight=ft.FontWeight.BOLD,
@@ -180,11 +183,14 @@ class ProductInfoCard(ft.Card):
         self.update()
 
 class MainView(ft.View):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, language: str = "en"):
+        self.language = language
+        self.t = TRANSLATIONS[language]  # Get translations for current language
+        
         # Load settings
         settings = self.load_settings()
         self.api_client = APIClient(settings.get("api_url", "http://127.0.0.1:8000"))
-        self.product_card = ProductInfoCard()
+        self.product_card = ProductInfoCard(language)
         # Load existing history from storage
         try:
             saved_history = page.client_storage.get("scan_history")
@@ -199,12 +205,12 @@ class MainView(ft.View):
                 ft.Stack(
                     [
                         ft.Column([
-                            ft.Text("Price Checker", size=24, weight=ft.FontWeight.BOLD),
+                            ft.Text(self.t["app_title"], size=24, weight=ft.FontWeight.BOLD),
                             ft.Column([
                                 ft.Row(
                                     [
                                         ft.TextField(
-                                            label="Scan here",
+                                            label=self.t["scan_here"],
                                             width=None,
                                             expand=True,
                                             autofocus=True,
@@ -219,7 +225,7 @@ class MainView(ft.View):
                                             tooltip="Toggle keyboard",
                                         ),
                                         ft.ElevatedButton(
-                                            "Submit",
+                                            self.t["submit"],
                                             on_click=self.on_scan,
                                             width=100,
                                             height=50,
@@ -242,13 +248,13 @@ class MainView(ft.View):
                             content=ft.Row(
                                 [
                                     ft.ElevatedButton(
-                                        "View History",
+                                        self.t["view_history"],
                                         on_click=lambda _: page.go("/history"),
                                         width=200,
                                         height=50,
                                     ),
                                     ft.ElevatedButton(
-                                        "Settings",
+                                        self.t["settings"],
                                         on_click=self.show_settings_dialog,
                                         width=200,
                                         height=50,
@@ -280,10 +286,10 @@ class MainView(ft.View):
         self.settings_dialog = ft.AlertDialog(
             modal=True,
             title=ft.Text("Confirm"),
-            content=ft.Text("Are you really want to open Settings?"),
+            content=ft.Text(TRANSLATIONS[self.language]["settings_confirm"]),
             actions=[
-                ft.TextButton("Yes", on_click=self.open_settings),
-                ft.TextButton("No", on_click=self.close_dialog),
+                ft.TextButton(TRANSLATIONS[self.language]["yes"], on_click=self.open_settings),
+                ft.TextButton(TRANSLATIONS[self.language]["no"], on_click=self.close_dialog),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
@@ -348,12 +354,12 @@ class MainView(ft.View):
                         self.page.update()  # Update the page
                         break
                 
-                self.status_text.value = "Scan successful"
+                self.status_text.value = TRANSLATIONS[self.language]["scan_successful"]
                 self.status_text.color = "green"
                 
             except Exception as e:
                 print(f"Error saving to storage: {e}")
-                self.status_text.value = "Error saving history"
+                self.status_text.value = TRANSLATIONS[self.language]["error_saving"]
                 self.status_text.color = "red"
             
         self.scan_field.value = ""
@@ -394,23 +400,24 @@ class MainView(ft.View):
         self.page.update()
 
 class ConfigView(ft.View):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, language: str):
         super().__init__()
         self.page = page
+        self.language = language
         
         # Load saved settings
         self.settings = self.load_settings()
         
         # Create input fields
         self.api_url_field = ft.TextField(
-            label="API URL",
+            label=TRANSLATIONS[self.language]["api_url"],
             value=self.settings.get("api_url", "http://127.0.0.1:8000"),
             width=None,
             expand=True
         )
         
         self.scan_timeout_field = ft.TextField(
-            label="Scan Timeout (seconds)",
+            label=TRANSLATIONS[self.language]["scan_timeout"],
             value=str(self.settings.get("scan_timeout", 1.0)),
             width=None,
             expand=True,
@@ -418,7 +425,7 @@ class ConfigView(ft.View):
         )
         
         self.min_length_field = ft.TextField(
-            label="Minimum Scan Length",
+            label=TRANSLATIONS[self.language]["min_length"],
             value=str(self.settings.get("min_scan_length", 10)),
             width=None,
             expand=True,
@@ -426,7 +433,7 @@ class ConfigView(ft.View):
         )
         
         self.max_length_field = ft.TextField(
-            label="Maximum Scan Length",
+            label=TRANSLATIONS[self.language]["max_length"],
             value=str(self.settings.get("max_scan_length", 13)),
             width=None,
             expand=True,
@@ -444,7 +451,7 @@ class ConfigView(ft.View):
                                     content=ft.Row(
                                         [
                                             ft.IconButton(ft.icons.ARROW_BACK, on_click=self.go_back),
-                                            ft.Text("Settings", size=20, weight=ft.FontWeight.BOLD),
+                                            ft.Text(TRANSLATIONS[self.language]["settings"], size=20, weight=ft.FontWeight.BOLD),
                                             ft.IconButton(ft.icons.SAVE, on_click=self.save_settings),
                                         ],
                                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -500,7 +507,7 @@ class ConfigView(ft.View):
                     view.api_client.base_url = settings["api_url"]
                     break
             
-            self.page.show_snack_bar(ft.SnackBar(content=ft.Text("Settings saved successfully")))
+            self.page.show_snack_bar(ft.SnackBar(content=ft.Text(TRANSLATIONS[self.language]["settings_saved"])))
         except Exception as e:
             self.page.show_snack_bar(ft.SnackBar(content=ft.Text(f"Error saving settings: {e}")))
     
@@ -510,6 +517,7 @@ class ConfigView(ft.View):
 class ScannerApp:
     def __init__(self):
         self.page = None
+        self.language = "ukr"  # Default language
         
     def initialize(self, page: ft.Page):
         self.page = page
@@ -518,22 +526,52 @@ class ScannerApp:
         self.page.theme_mode = ft.ThemeMode.SYSTEM
         self.page.window_width = 400
         
+        # Load saved language preference
+        try:
+            saved_lang = self.page.client_storage.get("language")
+            if saved_lang:
+                self.language = saved_lang
+        except Exception:
+            pass
+        
+        # Add language selector to the app bar
+        self.page.appbar = ft.AppBar(
+            title=ft.Text(TRANSLATIONS[self.language]["app_title"]),
+            center_title=True,
+            actions=[
+                ft.PopupMenuButton(
+                    items=[
+                        ft.PopupMenuItem(text="English", on_click=lambda _: self.change_language("en")),
+                        ft.PopupMenuItem(text="Українська", on_click=lambda _: self.change_language("ukr")),
+                    ]
+                )
+            ]
+        )
+        
         # Setup routing
-        self.main_view = MainView(page)
+        self.main_view = MainView(page, self.language)
         
         def route_change(route):
             self.page.views.clear()
             if page.route == "/history":
-                self.history_view = HistoryView(page)
+                self.history_view = HistoryView(page, self.language)
                 self.page.views.append(self.history_view)
             elif page.route == "/config":
-                self.config_view = ConfigView(page)
+                self.config_view = ConfigView(page, self.language)
                 self.page.views.append(self.config_view)
             else:
                 self.page.views.append(self.main_view)
             self.page.update()
-            
+        
         self.page.on_route_change = route_change
         self.page.go('/')
+    
+    async def change_language(self, new_lang):
+        self.language = new_lang
+        await self.page.client_storage.set_async("language", new_lang)
+        # Update all views
+        self.main_view = MainView(self.page, self.language)
+        self.page.appbar.title.value = TRANSLATIONS[self.language]["app_title"]
+        self.page.go(self.page.route)  # Refresh current route
 
 app = ScannerApp()
