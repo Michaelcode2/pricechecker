@@ -354,6 +354,8 @@ class MainView(ft.View):
                 self.status_text.color = "red"
             
         self.scan_field.value = ""
+        self.scan_field.keyboard_type = ft.KeyboardType.NONE 
+        self.scan_field.update()
         self.page.update()
         self.scan_field.focus()
     
@@ -387,6 +389,7 @@ class MainView(ft.View):
             if current_type == ft.KeyboardType.NONE 
             else ft.KeyboardType.NONE
         )
+        self.scan_field.update()
         self.scan_field.focus()
         self.page.update()
 
