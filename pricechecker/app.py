@@ -384,19 +384,17 @@ class MainView(ft.View):
     def toggle_keyboard(self, _):
         """Toggle between number keyboard and no keyboard"""
         current_type = self.scan_field.keyboard_type
-        self.scan_field.keyboard_type = (
+        new_type = (
             ft.KeyboardType.NUMBER 
             if current_type == ft.KeyboardType.NONE 
             else ft.KeyboardType.NONE
         )
         
-        # Force a complete refresh
-        self.scan_field.value = self.scan_field.value
-        self.scan_field.update()
-        self.page.views.clear()
-        self.page.views.append(self)
-        self.scan_field.focus()
+        self.scan_field.keyboard_type = new_type
+        self.page.show_keyboard = (new_type == ft.KeyboardType.NUMBER)
         self.page.update()
+        self.scan_field.focus()
+
 
 class ConfigView(ft.View):
     def __init__(self, page: ft.Page, language: str):
