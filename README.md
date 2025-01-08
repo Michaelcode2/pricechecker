@@ -50,7 +50,18 @@ The API expects requests with:
 - `x-api-key` header for authentication
 - Barcode in the request path
 
-Returns:
+#### Endpoints
+
+##### GET /products/{scan_code}
+Retrieves product information by its barcode.
+
+**Parameters:**
+- `scan_code` (path parameter): The barcode number of the product
+
+**Headers:**
+- `x-api-key`: API authentication key
+
+**Response:**
 ```json
 {
     "name": "Product Name",
@@ -59,6 +70,11 @@ Returns:
     "discountPrice": 8.99  // optional
 }
 ```
+
+**Error Responses:**
+- `401 Unauthorized`: Invalid or missing API key
+- `404 Not Found`: Product not found
+- `500 Internal Server Error`: Server-side error
 
 - - -
 
