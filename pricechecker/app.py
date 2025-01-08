@@ -24,7 +24,6 @@ class HistoryView(ft.View):
             expand=True
         )
         
-        # Set the view's controls with Stack layout
         self.controls = [
             ft.Stack(
                 [
@@ -55,7 +54,6 @@ class HistoryView(ft.View):
             )
         ]
         
-        # Load existing history
         self.load_history()
     
     def load_history(self):
@@ -77,19 +75,13 @@ class HistoryView(ft.View):
     
     async def clear_history(self, _):
         try:
-            print("Clearing history...")
-            # Clear storage using set instead of remove to ensure it's empty
             await self.page.client_storage.set_async("scan_history", "[]")
             
-            # Verify the storage is cleared - use async version
             current_storage = await self.page.client_storage.get_async("scan_history")
-            #print(f"Storage after clearing: {current_storage}")
             
-            # Clear ListView
             self.history_container.content.controls.clear()
             self.history_container.content.update()
             
-            # Update main view's history
             for view in self.page.views:
                 if isinstance(view, MainView):
                     view.history = []
@@ -98,7 +90,7 @@ class HistoryView(ft.View):
             self.page.update()
         except Exception as e:
             print(f"Error clearing history: {e}")
-            #raise e  # This will help us see the full error if something goes wrong
+            raise e 
     
     def go_back(self, _):
         self.page.go('/')
@@ -121,7 +113,7 @@ class ProductInfoCard(ft.Card):
         self.content.content.controls = [
             ft.Text(
                 product.name,
-                size=24,  # Increased from 18
+                size=24,
                 weight=ft.FontWeight.BOLD,
                 text_align=ft.TextAlign.CENTER,
             ),
@@ -140,7 +132,7 @@ class ProductInfoCard(ft.Card):
                         ft.Text(self.t["price"], size=20),
                         ft.Text(
                             f"{product.price:.2f}",
-                            size=36,  # Increased from 16
+                            size=36,
                             weight=ft.FontWeight.BOLD,
                             color=ft.colors.BLACK,
                         ),
@@ -167,7 +159,7 @@ class ProductInfoCard(ft.Card):
                                 [
                                     ft.Text(
                                         f"{product.discount_price:.2f}",
-                                        size=36,  # Even bigger discount price
+                                        size=36,
                                         weight=ft.FontWeight.BOLD,
                                         color=ft.colors.RED,
                                     ),
@@ -185,7 +177,7 @@ class ProductInfoCard(ft.Card):
 
 class MainView(ft.View):
     def __init__(self, page: ft.Page, language: str = "en"):
-        # Call parent class __init__ first with route
+
         super().__init__(route="/")
         
         # Set instance variables
@@ -195,7 +187,10 @@ class MainView(ft.View):
         
         # Load settings
         settings = self.load_settings()
-        self.api_client = APIClient(settings.get("api_url", "http://127.0.0.1:8000"))
+        self.api_client = APIClient(
+            settings.get("api_url", "http://127.0.0.1:8000"),
+            settings.get("api_key", "")
+        )
         self.product_card = ProductInfoCard(language)
         
         # Load existing history from storage
@@ -311,7 +306,6 @@ class MainView(ft.View):
             self.status_text.value = error
             self.status_text.color = "red"
         else:
-            # Update product info card
             self.product_card.update_info(product)
             
             # Create new history item
@@ -328,11 +322,9 @@ class MainView(ft.View):
             
             # Save to storage
             try:
-                # Add new item to history
                 self.history.insert(0, new_item)
                 self.history = self.history[:10]  # Keep only last 10
                 
-                # Save to storage using async
                 await self.page.client_storage.set_async("scan_history", json.dumps(self.history))
                 
                 # Create and add history item to view
@@ -347,10 +339,10 @@ class MainView(ft.View):
                     if isinstance(view, HistoryView):
                         view.history_container.content.controls.insert(0, history_item)
                         view.history_container.content.controls = view.history_container.content.controls[:10]
-                        view.history_container.content.update()  # Update the ListView
-                        view.history_container.update()  # Update the container
-                        view.update()  # Update the entire view
-                        self.page.update()  # Update the page
+                        view.history_container.content.update() 
+                        view.history_container.update()
+                        view.update()
+                        self.page.update()
                         break
                 
                 self.status_text.value = TRANSLATIONS[self.language]["scan_successful"]
@@ -448,28 +440,43 @@ class ConfigView(ft.View):
             ],
         )
 
-        # Add back button and title
+        self.api_key_field = ft.TextField(
+            label=TRANSLATIONS[self.language]["api_key"],
+            value=self.settings.get("api_key", ""),
+            width=None,
+            expand=True,
+            password=True  # Hide the API key
+        )
+
+        def handle_save(_):
+            async def _save():
+                await self.save_settings(_)
+            self.page.add_async(_save())
+        
         self.controls = [
             ft.Container(
                 content=ft.Column([
-                    # Header with back button and save button
                     ft.Container(
                         content=ft.Row(
                             [
                                 ft.IconButton(ft.icons.ARROW_BACK, on_click=self.go_back),
                                 ft.Text(TRANSLATIONS[self.language]["settings"], size=20, weight=ft.FontWeight.BOLD),
-                                ft.IconButton(ft.icons.SAVE, on_click=self.save_settings),
+                                ft.IconButton(
+                                    ft.icons.SAVE,
+                                    on_click=self.save_settings
+                                ),
                             ],
                             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                         ),
                         bgcolor=ft.colors.SURFACE_VARIANT,
                         padding=10,
                     ),
-                    # Settings form
+                    
                     ft.Container(
                         content=ft.Column([
                             self.language_dropdown,
                             self.api_url_field,
+                            self.api_key_field,
                             self.scan_timeout_field,
                             self.min_length_field,
                             self.max_length_field,
@@ -496,49 +503,69 @@ class ConfigView(ft.View):
             return {}
 
     def go_back(self, _):
-        self.page.go('/')
+        if not self.page:
+            return
+            
+        # Store page reference
+        page = self.page
+        
+        # Remove this view before navigation
+        if self in page.views:
+            page.views.remove(self)
+            
+        page.update()
+        page.go('/')
 
     def save_settings(self, _):
+        if not self.page:
+            return
+            
+        # Store page reference
+        page = self.page
+            
         try:
             settings = {
                 "api_url": self.api_url_field.value,
+                "api_key": self.api_key_field.value,
                 "scan_timeout": float(self.scan_timeout_field.value),
                 "min_scan_length": int(self.min_length_field.value),
-                "max_scan_length": int(self.max_length_field.value),
+                "max_length_field": int(self.max_length_field.value),
                 "language": self.language_dropdown.value
             }
             
-            self.page.client_storage.set("app_settings", json.dumps(settings))
+            # Save settings
+            page.client_storage.set("app_settings", json.dumps(settings))
             
             # Update MainView settings
-            for view in self.page.views:
+            for view in page.views:
                 if isinstance(view, MainView):
-                    view.api_client.base_url = settings["api_url"]
+                    view.api_client = APIClient(
+                        settings["api_url"],
+                        settings["api_key"]
+                    )
                     break
             
-            # Update language if changed
-            if settings["language"] != self.language:
-                app = self.page.data.get("app")
-                if app:
-                    app.change_language(settings["language"])
+            # Remove this view before navigation
+            if self in page.views:
+                page.views.remove(self)
             
-            # Show success message
-            self.page.snack_bar = ft.SnackBar(
-                content=ft.Text(TRANSLATIONS[self.language]["settings_saved"])
+            # Navigate and show success message
+            page.go('/')
+            page.snack_bar = ft.SnackBar(
+                content=ft.Text(TRANSLATIONS[self.language]["settings_saved"]),
+                duration=1000,
             )
-            self.page.snack_bar.open = True
-            self.page.update()
-            
-            # Navigate back to main view
-            self.page.go('/')
+            page.snack_bar.open = True
+            page.update()
 
         except Exception as e:
-            # Show error message
-            self.page.snack_bar = ft.SnackBar(
-                content=ft.Text(f"Error saving settings: {e}")
+            print(f"Error saving settings: {e}")
+            page.snack_bar = ft.SnackBar(
+                content=ft.Text(f"Error saving settings: {str(e)}"),
+                duration=2000,
             )
-            self.page.snack_bar.open = True
-            self.page.update()
+            page.snack_bar.open = True
+            page.update()
 
 class ScannerApp:
     def __init__(self):

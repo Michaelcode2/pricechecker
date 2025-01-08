@@ -29,6 +29,7 @@ TRANSLATIONS = {
         "scanned": "Scanned",
         "barcode": "Barcode",
         "discount": "Discount",
+        "api_key": "API Key",
     },
     "ukr": {
         "app_title": "Перевірка цін",
@@ -60,5 +61,6 @@ TRANSLATIONS = {
         "scanned": "Відскановано",
         "barcode": "Штрихкод",
         "discount": "Знижка",
+        "api_key": "API ключ",
     }
 } 
