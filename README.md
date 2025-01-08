@@ -1,6 +1,15 @@
 # pricechecker
 Primitive price checker written on Flet framework
 
+## Features
+- Barcode scanning interface
+- Product price lookup via API
+- API key authentication via request headers
+- Multilanguage support (English/Ukrainian)
+- Keyboard blocking on main screen (for scanner devices)
+- Scan history with last 10 items
+- Configurable settings
+
 
 ### VENV
 
@@ -27,20 +36,22 @@ Then you need to do this (in my case, it's libmpv.so.2):
 `sudo ln -s /usr/lib/x86_64-linux-gnu/libmpv.so.2 /usr/lib/x86_64-linux-gnu/libmpv.so.1`
 
 
-### Processing
+### Configuration
 
-Obtained data:
-- name
-- measurement
-- price
-- discountPrice
+The application can be configured through the settings screen:
+- API URL and authentication key
+- Language selection (English/Ukrainian)
+- Scan timeout and length parameters
+- Keyboard toggle for scanner devices
 
+### API Integration
 
-#### Run mock API
+The API expects requests with:
+- `x-api-key` header for authentication
+- Barcode in the request path
 
-Returns
-
-```
+Returns:
+```json
 {
     "name": "Product Name",
     "measurement": "pcs",
@@ -49,14 +60,21 @@ Returns
 }
 ```
 
+- - -
+
+### Run application locally
+
+To run application 
+
+`python ./main.py`
+
 To run application with mock server
 
 `python -m pricechecker.mock_server.run_with_fake_api`
 
-Test barcodes:
+#### To run Android application in Flet emulator
 
-12345678900014
+`flet run --android`
 
-98765432145555
-
+Testing: https://flet.dev/docs/getting-started/testing-on-android/
 
