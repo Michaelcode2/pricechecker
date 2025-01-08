@@ -389,7 +389,12 @@ class MainView(ft.View):
             if current_type == ft.KeyboardType.NONE 
             else ft.KeyboardType.NONE
         )
+        
+        # Force a complete refresh
+        self.scan_field.value = self.scan_field.value
         self.scan_field.update()
+        self.page.views.clear()
+        self.page.views.append(self)
         self.scan_field.focus()
         self.page.update()
 
