@@ -361,11 +361,15 @@ class MainView(ft.View):
     
     def load_settings(self):
         try:
-            saved_settings = self.page.client_storage.get("app_settings")
-            return json.loads(saved_settings) if saved_settings else {}
-        except Exception as e:
-            print(f"Error loading settings: {e}")
-            return {}
+            with open("settings.json", "r", encoding="utf-8") as f:
+                settings = json.load(f)
+                return settings
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {
+                "language": "ukr", 
+                "max_scan_length": 14,
+                "min_scan_length": 6
+            }
     
     def show_settings_dialog(self, _):
         self.page.dialog = self.settings_dialog
@@ -429,7 +433,7 @@ class ConfigView(ft.View):
         
         self.max_length_field = ft.TextField(
             label=TRANSLATIONS[self.language]["max_length"],
-            value=str(self.settings.get("max_scan_length", 43)),
+            value=str(self.settings.get("max_scan_length", 14)),
             width=None,
             expand=True
         )
@@ -535,7 +539,7 @@ class ConfigView(ft.View):
                 "api_key": self.api_key_field.value,
                 "scan_timeout": float(self.scan_timeout_field.value),
                 "min_scan_length": int(self.min_length_field.value),
-                "max_length_field": int(self.max_length_field.value),
+                "max_scan_length": int(self.max_length_field.value),
                 "language": self.language_dropdown.value
             }
             
@@ -584,6 +588,9 @@ class ScannerApp:
         self.page.padding = 0
         self.page.theme_mode = ft.ThemeMode.SYSTEM
         self.page.window_width = 400
+        
+        # disable back button
+        self.page.on_view_pop = lambda _: None
         
         # Store app instance in page data for access from other views
         self.page.data = {"app": self}
