@@ -331,6 +331,7 @@ class MainView(ft.View):
                 history_item = create_history_item(
                     new_item["barcode"], 
                     product,
+                    TRANSLATIONS[self.language],
                     datetime.fromisoformat(new_item["timestamp"])
                 )
                 
