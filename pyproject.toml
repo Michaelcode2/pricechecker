@@ -1,9 +1,10 @@
 [project]
 name = "price-checker"
 version = "1.0.0"
-description = "Price Checker"
+description = "Price Checker Application"
 dependencies = [
-    "flet"
+    "flet",
+    "python-dotenv"
 ]
 
 [tool.flet]
