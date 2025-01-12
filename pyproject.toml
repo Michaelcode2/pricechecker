@@ -1,0 +1,20 @@
+[project]
+name = "price-checker"
+version = "1.0.0"
+description = "Price Checker"
+dependencies = [
+    "flet"
+]
+
+[tool.flet]
+app.module = "main"
+
+[tool.flet.android]
+# Enable cleartext traffic
+permission."android.permission.INTERNET" = true
+
+# App name and other configurations
+[tool.flet.android.manifest]
+application.label = "Price Checker"
+application.usesCleartextTraffic = true
+application.networkSecurityConfig = "@xml/network_security_config" 
