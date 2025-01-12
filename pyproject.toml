@@ -13,9 +13,9 @@ app.module = "main"
 [tool.flet.android]
 # Enable cleartext traffic
 permission."android.permission.INTERNET" = true
+application.usesCleartextTraffic = "true"
 
 # App name and other configurations
 [tool.flet.android.manifest]
 application.label = "Price Checker"
-application.usesCleartextTraffic = true
-application.networkSecurityConfig = "@xml/network_security_config" 
+application.usesCleartextTraffic = "true" 
