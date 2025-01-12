@@ -9,15 +9,17 @@ class APIClient:
         
     async def get_product_info(self, scan_code: str) -> tuple[Optional[ProductInfo], Optional[str]]:
         try:
-            headers = {"x-api-key": self.api_key}
-            async with httpx.AsyncClient() as client:
+            # Configure httpx client with specific settings
+            async with httpx.AsyncClient(
+                timeout=30.0,
+                verify=False,  # Try disabling SSL verification
+                follow_redirects=True  # Allow redirects
+            ) as client:
                 response = await client.get(
                     f"{self.base_url}/products/{scan_code}",
-                    headers=headers
+                    headers={}  # Empty headers for now
                 )
                 response.raise_for_status()
                 return ProductInfo.from_dict(response.json()), None
-        except httpx.HTTPError as e:
-            return None, f"API Error: {str(e)}"
         except Exception as e:
             return None, f"Error: {str(e)}" 
