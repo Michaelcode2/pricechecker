@@ -11,12 +11,10 @@ dependencies = [
 app.module = "main"
 
 [tool.flet.android]
-# Enable cleartext traffic
 permission."android.permission.INTERNET" = true
 permission."android.permission.ACCESS_NETWORK_STATE" = true
-application.usesCleartextTraffic = "true"
+permission."android.permission.ACCESS_WIFI_STATE" = true
 
-# App name and other configurations
 [tool.flet.android.manifest]
 application.label = "Price Checker"
 application.usesCleartextTraffic = "true"
