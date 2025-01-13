@@ -1,8 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
+from typing import Optional
 import uvicorn
 from random import uniform, choice
 
 app = FastAPI()
+
+# Expected API key
+VALID_API_KEY = "12345"
 
 # Fake database of products
 FAKE_PRODUCTS = {
@@ -32,9 +36,10 @@ def generate_random_product(barcode: str):
     }
 
 @app.get("/products/{barcode}")
-async def get_product(barcode: str):
-    # Simulate some delay (optional)
-    # await asyncio.sleep(0.5)
+async def get_product(barcode: str, x_api_key: Optional[str] = Header(None)):
+    # Validate API key
+    if x_api_key != VALID_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
     
     # Return predefined product if exists
     if barcode in FAKE_PRODUCTS:

@@ -21,7 +21,7 @@ def create_history_item(barcode: str, product: ProductInfo, translations: dict, 
     # Add discount field only if there is a discount
     if product.discount_price:
         column_controls.append(
-            ft.Text(f"{translations["discount"]}: ${product.discount_price:.2f}")
+            ft.Text(f"{translations["discount"]}: {product.discount_price:.2f}")
         )
     
     return ft.Card(

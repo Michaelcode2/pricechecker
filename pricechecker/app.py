@@ -8,6 +8,27 @@ from .models import ProductInfo
 from .languages import TRANSLATIONS
 
 
+# Global settings with default values
+APP_SETTINGS = {
+    "api_url": "http://127.0.0.1:8000",
+    "api_key": "",
+    "language": "ukr",
+    "scan_timeout": 1.0,
+    "min_scan_length": 4,
+    "max_scan_length": 14
+}
+
+# Load saved settings at app start
+def load_saved_settings(page: ft.Page):
+    global APP_SETTINGS
+    try:
+        saved = page.client_storage.get("app_settings")
+        if saved:
+            APP_SETTINGS.update(json.loads(saved))
+            print(f"Loaded settings: {APP_SETTINGS}")
+    except Exception as e:
+        print(f"Error loading settings: {e}")
+
 class HistoryView(ft.View):
     def __init__(self, page: ft.Page, language: str):
         super().__init__()
@@ -196,24 +217,10 @@ class MainView(ft.View):
             text_align=ft.TextAlign.LEFT,
         )
         
-        # Load settings from client storage instead of file
-        try:
-            saved_settings = page.client_storage.get("app_settings")
-            settings = json.loads(saved_settings) if saved_settings else {}
-            print(f"Loaded settings: {settings}")  # Debug settings
-        except Exception as e:
-            settings = {}
-            print(f"Error loading settings: {e}")
-        
-        # Now initialize api_client with settings from storage
-        api_url = settings.get("api_url", "http://127.0.0.1:8000")
-        api_key = settings.get("api_key", "")
-        
-        print(f"Using API URL: {api_url}")  # Debug URL
-        
+        # Use global settings directly
         self.api_client = APIClient(
-            api_url,
-            api_key,
+            APP_SETTINGS["api_url"],
+            APP_SETTINGS["api_key"],
             status_text=self.status_text
         )
         
@@ -369,7 +376,6 @@ class MainView(ft.View):
                         view.history_container.content.update() 
                         view.history_container.update()
                         view.update()
-                        self.page.update()
                         break
                 
                 self.status_text.value = TRANSLATIONS[self.language]["scan_successful"]
@@ -385,18 +391,6 @@ class MainView(ft.View):
         self.scan_field.update()
         self.page.update()
         self.scan_field.focus()
-    
-    def load_settings(self):
-        try:
-            with open("settings.json", "r", encoding="utf-8") as f:
-                settings = json.load(f)
-                return settings
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {
-                "language": "ukr", 
-                "max_scan_length": 14,
-                "min_scan_length": 6
-            }
     
     def show_settings_dialog(self, _):
         self.page.dialog = self.settings_dialog
@@ -433,34 +427,31 @@ class ConfigView(ft.View):
         self.page = page
         self.language = language
         
-        # Load saved settings
-        self.settings = self.load_settings()
-        
-        # Create input fields
+        # Use global settings for initial values
         self.api_url_field = ft.TextField(
             label=TRANSLATIONS[self.language]["api_url"],
-            value=self.settings.get("api_url", "http://127.0.0.1:8000"),
+            value=APP_SETTINGS["api_url"],
             width=None,
             expand=True
         )
         
         self.scan_timeout_field = ft.TextField(
             label=TRANSLATIONS[self.language]["scan_timeout"],
-            value=str(self.settings.get("scan_timeout", 1.0)),
+            value=str(APP_SETTINGS["scan_timeout"]),
             width=None,
             expand=True
         )
         
         self.min_length_field = ft.TextField(
             label=TRANSLATIONS[self.language]["min_length"],
-            value=str(self.settings.get("min_scan_length", 4)),
+            value=str(APP_SETTINGS["min_scan_length"]),
             width=None,
             expand=True
         )
         
         self.max_length_field = ft.TextField(
             label=TRANSLATIONS[self.language]["max_length"],
-            value=str(self.settings.get("max_scan_length", 14)),
+            value=str(APP_SETTINGS["max_scan_length"]),
             width=None,
             expand=True
         )
@@ -479,7 +470,7 @@ class ConfigView(ft.View):
 
         self.api_key_field = ft.TextField(
             label=TRANSLATIONS[self.language]["api_key"],
-            value=self.settings.get("api_key", ""),
+            value=APP_SETTINGS["api_key"],
             width=None,
             expand=True,
             password=True  # Hide the API key
@@ -531,14 +522,6 @@ class ConfigView(ft.View):
             )
         ]
 
-    def load_settings(self):
-        try:
-            saved_settings = self.page.client_storage.get("app_settings")
-            return json.loads(saved_settings) if saved_settings else {}
-        except Exception as e:
-            print(f"Error loading settings: {e}")
-            return {}
-
     def go_back(self, _):
         if not self.page:
             return
@@ -554,39 +537,22 @@ class ConfigView(ft.View):
         page.go('/')
 
     def save_settings(self, _):
-        if not self.page:
-            return
-            
-        # Store page reference
-        page = self.page
-            
+        global APP_SETTINGS
         try:
-            settings = {
+            APP_SETTINGS.update({
                 "api_url": self.api_url_field.value,
                 "api_key": self.api_key_field.value,
                 "scan_timeout": float(self.scan_timeout_field.value),
                 "min_scan_length": int(self.min_length_field.value),
                 "max_scan_length": int(self.max_length_field.value),
                 "language": self.language_dropdown.value
-            }
-            
-            # Save settings
-            page.client_storage.set("app_settings", json.dumps(settings))
-            
-            # Update MainView settings
-            for view in page.views:
-                if isinstance(view, MainView):
-                    view.api_client = APIClient(
-                        settings["api_url"],
-                        settings["api_key"]
-                    )
-                    break
-            
-            # Remove this view before navigation
-            if self in page.views:
-                page.views.remove(self)
-            
+            })
+            # Save to permanent storage synchronously
+            self.page.client_storage.set("app_settings", json.dumps(APP_SETTINGS))
+            print(f"Settings saved: {APP_SETTINGS}")
+
             # Navigate and show success message
+            page = self.page
             page.go('/')
             page.snack_bar = ft.SnackBar(
                 content=ft.Text(TRANSLATIONS[self.language]["settings_saved"]),
@@ -597,12 +563,12 @@ class ConfigView(ft.View):
 
         except Exception as e:
             print(f"Error saving settings: {e}")
-            page.snack_bar = ft.SnackBar(
+            self.page.snack_bar = ft.SnackBar(
                 content=ft.Text(f"Error saving settings: {str(e)}"),
                 duration=2000,
             )
-            page.snack_bar.open = True
-            page.update()
+            self.page.snack_bar.open = True
+            self.page.update()
 
 class ScannerApp:
     def __init__(self):
@@ -618,6 +584,8 @@ class ScannerApp:
         
         # disable back button
         self.page.on_view_pop = lambda _: None
+        # Load settings before creating views
+        load_saved_settings(page)
         
         # Store app instance in page data for access from other views
         self.page.data = {"app": self}
