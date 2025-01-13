@@ -22,38 +22,22 @@ class APIClient:
             self.status_text.color = "red" if is_error else "green"
             self.status_text.visible = True
             self.status_text.update()
-            await asyncio.sleep(3)  # Show for 3 seconds
-            self.status_text.visible = False
-            self.status_text.update()
         
     async def get_product_info(self, scan_code: str) -> tuple[Optional[ProductInfo], Optional[str]]:
         try:
             url = f"{self.base_url}/products/{scan_code}"
-            await self.show_debug(f"Trying URL: {url}")
+            headers = {"x-api-key": self.api_key} if self.api_key else {}
             
             async with httpx.AsyncClient(
                 timeout=30.0,
                 verify=False,
                 follow_redirects=True
             ) as client:
-                await self.show_debug("Making request...")
-                response = await client.get(url, headers={})
-                
-                await self.show_debug(f"Status: {response.status_code}")
-                await self.show_debug(f"Response: {response.text[:100]}")  # First 100 chars
-                
+                response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 return ProductInfo.from_dict(response.json()), None
                 
-        except httpx.ConnectError as e:
-            error = f"Connection Error: {str(e)}"
-            await self.show_debug(error)
-            return None, error
-        except httpx.TimeoutException as e:
-            error = f"Timeout Error: {str(e)}"
-            await self.show_debug(error)
-            return None, error
         except Exception as e:
-            error = f"Error: {type(e).__name__}: {str(e)}"
-            await self.show_debug(error)
+            error = f"Error: {str(e)}"
+            await self.show_status(error, is_error=True)
             return None, error 
