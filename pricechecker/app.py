@@ -177,7 +177,6 @@ class ProductInfoCard(ft.Card):
 
 class MainView(ft.View):
     def __init__(self, page: ft.Page, language: str = "en"):
-
         super().__init__(route="/")
         
         # Set instance variables
@@ -185,12 +184,39 @@ class MainView(ft.View):
         self.language = language
         self.t = TRANSLATIONS[language]
         
-        # Load settings
-        settings = self.load_settings()
-        self.api_client = APIClient(
-            settings.get("api_url", "http://127.0.0.1:8000"),
-            settings.get("api_key", "")
+        # Create status_text with better visibility
+        self.status_text = ft.Text(
+            size=12,
+            color=ft.colors.RED_400,
+            selectable=True,
+            visible=True,
+            bgcolor=ft.colors.BLACK12,
+            width=None,
+            expand=True,
+            text_align=ft.TextAlign.LEFT,
         )
+        
+        # Load settings from client storage instead of file
+        try:
+            saved_settings = page.client_storage.get("app_settings")
+            settings = json.loads(saved_settings) if saved_settings else {}
+            print(f"Loaded settings: {settings}")  # Debug settings
+        except Exception as e:
+            settings = {}
+            print(f"Error loading settings: {e}")
+        
+        # Now initialize api_client with settings from storage
+        api_url = settings.get("api_url", "http://127.0.0.1:8000")
+        api_key = settings.get("api_key", "")
+        
+        print(f"Using API URL: {api_url}")  # Debug URL
+        
+        self.api_client = APIClient(
+            api_url,
+            api_key,
+            status_text=self.status_text
+        )
+        
         self.product_card = ProductInfoCard(language)
         
         # Load existing history from storage
@@ -239,6 +265,7 @@ class MainView(ft.View):
                             size=16,
                             color=ft.colors.GREY_700
                         ),
+                        self.status_text,
                         self.product_card,
                     ], spacing=10),
                 ], spacing=10, expand=True),
@@ -268,7 +295,6 @@ class MainView(ft.View):
         ]
         
         self.scan_field = self.controls[0].controls[0].controls[1].controls[0].controls[0]
-        self.status_text = self.controls[0].controls[0].controls[1].controls[1]
         
         # Add keyboard listener to the page
         self.page.on_keyboard_event = self.handle_keyboard_event
